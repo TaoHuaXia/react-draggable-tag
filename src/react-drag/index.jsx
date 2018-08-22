@@ -37,26 +37,53 @@ export default class DragWrapper extends Component {
     })
     let dragItem = this.dragItems[id]
 
+    // 存储拖拽前的鼠标以及元素的位置信息
     this.position.prevX = e.nativeEvent.clientX
     this.position.prevY = e.nativeEvent.clientY
-    this.position.offsetTop = dragItem.offsetTop
-    this.position.offsetLeft = dragItem.offsetLeft
+    this.position.left = 0
+    this.position.top  = 0
+
+    // 绑定mousemove事件以及mouseup事件
     let elementDrag = (e) => this.handleDrag(e, dragItem)
     document.addEventListener("mousemove", elementDrag, false)
+    document.addEventListener("mouseup", _ => this.handleDragEnd(elementDrag))
   }
 
   handleDrag = (e, element) => {
     e.preventDefault()
     let currentClientX = e.clientX
     let currentClientY = e.clientY
-    let newElementTop = this.position.offsetTop + currentClientX - this.position.prevX
-    let newElementLeft = this.position.offsetLeft + currentClientY - this.position.prevY
+    let newElementTop = this.position.top + currentClientX - this.position.prevX
+    let newElementLeft = this.position.left + currentClientY - this.position.prevY
+    console.log(newElementLeft, newElementTop)
     element.style.transform = `translate(${newElementTop}px,${newElementLeft}px)`
-    this.position.offsetTop = newElementTop
-    this.position.offsetLeft = newElementLeft
-    this.position.prevY = currentClientX
-    this.position.prevX = currentClientY
+    this.position.top = newElementTop
+    this.position.left = newElementLeft
+    this.position.prevY = currentClientY
+    this.position.prevX = currentClientX
+
+    // TODO 根据移动的位置来判断插入的位置
   }
+
+  handleDragEnd = (func) => {
+    const { onChange } = this.props
+    // 将挂载在document上的Mousemove事件，并将拖拽相关的信息重置
+    document.removeEventListener("mousemove", func)
+    this.position = {
+      offsetTop: null,
+      offsetLeft: null,
+      prevX: null,
+      prevY: null
+    }
+    this.setState({
+      currentDraggingItem: null
+    })
+
+    // TODO 根据放置的位置来调整tags的顺序
+    let newTag = []
+    onChange && onChange(newTag)
+  }
+
 
   render() {
     const {tags, render, onChange, onDelete, wrapperClass} = this.props
