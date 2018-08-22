@@ -1,0 +1,44 @@
+body {
+  margin: 0;
+  padding: 0 15px;
+  font-family: sans-serif;
+}
+.DragWrapper {
+  margin-top: 20px;
+  border: 1px solid #eee;
+  position: relative;
+  height: 200px;
+  text-align: left;
+}
+.DragItem {
+  display: inline-block;
+  cursor: move;
+  position: relative;
+  margin: 3px;
+}
+.DragTag {
+  position: relative;
+  z-index: 5;
+  font-size: 13px;
+  border: 1px dashed #cccccc;
+  border-radius: 4px;
+  padding: 0 8px;
+  line-height: 30px;
+  color: #666666;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.TargetTag {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  top: 0;
+  right: 0;
+  background-color: red;
+  z-index: 2;
+  border-radius: 4px;
+}
+.isDragging {
+  will-change: transform;
+  transition: 0s;
+}
