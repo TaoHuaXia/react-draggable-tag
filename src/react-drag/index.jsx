@@ -11,7 +11,8 @@ export default class DragWrapper extends Component {
   constructor() {
     super()
     this.state = {
-      currentDraggingItem: null
+      currentDraggingItem: null,
+      currentPlaceZoneNextId: null
     }
     this.dragItems = {}
     this.dragItemWrapper = {}
@@ -20,9 +21,12 @@ export default class DragWrapper extends Component {
       top: null,
       left: null,
       prevX: null,
-      prevY: null
+      prevY: null,
+      offsetTop: null,
+      offsetLeft: null
     }
     this.placeablePositions = []
+    this.currentPlaceZoneNextId = null
   }
 
   static propTypes = {
@@ -122,6 +126,8 @@ export default class DragWrapper extends Component {
     this.dragPosition.prevY = e.nativeEvent.clientY
     this.dragPosition.left = 0
     this.dragPosition.top  = 0
+    this.dragPosition.baseCenterY = dragItem.offsetTop + dragItem.offsetHeight / 2
+    this.dragPosition.baseCenterX = dragItem.offsetLeft + dragItem.offsetWidth / 2
 
     // 绑定mousemove事件以及mouseup事件
     let elementDrag = (e) => this.handleDrag(e, dragItem)
@@ -133,16 +139,55 @@ export default class DragWrapper extends Component {
     e.preventDefault()
     let currentClientX = e.clientX
     let currentClientY = e.clientY
-    let newElementTop = this.dragPosition.top + currentClientX - this.dragPosition.prevX
-    let newElementLeft = this.dragPosition.left + currentClientY - this.dragPosition.prevY
-    console.log(newElementLeft, newElementTop)
-    element.style.transform = `translate(${newElementTop}px,${newElementLeft}px)`
+
+    // 根据鼠标的位移来设置被拖动元素的transform的值
+    let newElementLeft = this.dragPosition.left + currentClientX - this.dragPosition.prevX
+    let newElementTop = this.dragPosition.top + currentClientY - this.dragPosition.prevY
+    element.style.transform = `translate(${newElementLeft}px,${newElementTop}px)`
+
+    // 更新位置对象的信息
     this.dragPosition.top = newElementTop
     this.dragPosition.left = newElementLeft
     this.dragPosition.prevY = currentClientY
     this.dragPosition.prevX = currentClientX
 
-    // TODO 根据移动的位置来判断插入的位置
+    // 根据当前拖动的元素的中心点来与可插入位置比对
+    let currentMouseOffsetX = this.dragPosition.baseCenterX + newElementLeft
+    let currentMouseOffsetY = this.dragPosition.baseCenterY + newElementTop
+    let row = Math.floor(currentMouseOffsetY / this.props.rowHeight)
+    let placeableZones = this.placeablePositions[row]
+    let isAlreadyHit = false
+    console.log(row)
+    console.log(currentMouseOffsetX, currentMouseOffsetY)
+    for (let i = 0; i < placeableZones.length; i++) {
+      let zone = placeableZones[i]
+      let {xzone , yzone} = zone
+      if (
+        xzone[0] < currentMouseOffsetX && currentMouseOffsetX < xzone[1] &&
+        yzone[0] < currentMouseOffsetY && currentMouseOffsetY < yzone[1]
+      ) {
+        console.log('找到了！！！')
+        console.log(currentMouseOffsetX, currentMouseOffsetY)
+        isAlreadyHit = true
+        let nextId = zone.nextId || 'Trail'
+        if (this.currentPlaceZoneNextId !== nextId) {
+          this.currentPlaceZoneNextId = nextId
+          this.setState({
+            currentPlaceZoneNextId: nextId
+          })
+        }
+      }
+    }
+    if (!isAlreadyHit) {
+      console.log('出去啦！')
+      console.log(currentMouseOffsetX, currentMouseOffsetY)
+      if (this.currentPlaceZoneNextId !== null) {
+        this.currentPlaceZoneNextId = null
+        this.setState({
+          currentPlaceZoneNextId: null
+        })
+      }
+    }
   }
 
   handleDragEnd = (func) => {
@@ -173,10 +218,11 @@ export default class DragWrapper extends Component {
         {
           tags.map(item => {
             let isDragging = this.state.currentDraggingItem === item.id
+            let isPlaceZoneNext = this.state.currentPlaceZoneNextId === item.id
             return (
               <div
                 key={item.id}
-                className={`DragItem ${wrapperClass || ''}`}
+                className={`DragItem ${wrapperClass || ''} ${isPlaceZoneNext ? 'indent' : ''}`}
                 onMouseDown={e => this.handleMouseDown(item.id, e)}
                 ref={ref => { this.dragItemWrapper[item.id] = ref}}
               >
