@@ -27,6 +27,8 @@ export default class DragWrapper extends Component {
     }
     this.placeablePositions = []
     this.currentPlaceZoneNextId = null
+    this.dragWrapperWidth = null
+    this.insertIndex = null
   }
 
   static propTypes = {
@@ -49,7 +51,7 @@ export default class DragWrapper extends Component {
   setPositions = () => {
     if (!this.props.tags) return false
     let wrapperWidth = this.dragWrapper.clientWidth
-    let wrapperHeight = this.dragWrapper.clientHeight
+    this.dragWrapperWidth = wrapperWidth
     let itemPositionInRow = []
     this.props.tags.forEach((tag, index) => {
       let offsetTop = this.dragItemWrapper[tag.id].offsetTop
@@ -120,14 +122,28 @@ export default class DragWrapper extends Component {
       currentDraggingItem: id
     })
     let dragItem = this.dragItems[id]
+    let dragItemWrapper = this.dragItemWrapper[id]
 
     // 存储拖拽前的鼠标以及元素的位置信息
     this.dragPosition.prevX = e.nativeEvent.clientX
     this.dragPosition.prevY = e.nativeEvent.clientY
     this.dragPosition.left = 0
     this.dragPosition.top  = 0
-    this.dragPosition.baseCenterY = dragItem.offsetTop + dragItem.offsetHeight / 2
-    this.dragPosition.baseCenterX = dragItem.offsetLeft + dragItem.offsetWidth / 2
+    this.dragPosition.baseCenterY = dragItemWrapper.offsetTop + dragItem.offsetHeight / 2
+    this.dragPosition.baseCenterX = dragItemWrapper.offsetLeft + dragItem.offsetWidth / 2
+    // 获取被拖拽元素左侧的可放置区域的index，用以过滤其左右两侧的可放置区域
+    let row = Math.floor(this.dragPosition.baseCenterY / this.props.rowHeight)
+    let beforeZoneIndex = null
+    this.placeablePositions[row].forEach((zone, index) => {
+      if (zone.nextId === id) {
+        beforeZoneIndex = index
+      }
+    })
+
+    // 将被拖动元素的左右两侧的可放置区域过滤
+    if (beforeZoneIndex !== null) {
+      this.placeablePositions[row].splice(beforeZoneIndex, 2)
+    }
 
     // 绑定mousemove事件以及mouseup事件
     let elementDrag = (e) => this.handleDrag(e, dragItem)
@@ -154,12 +170,24 @@ export default class DragWrapper extends Component {
     // 根据当前拖动的元素的中心点来与可插入位置比对
     let currentMouseOffsetX = this.dragPosition.baseCenterX + newElementLeft
     let currentMouseOffsetY = this.dragPosition.baseCenterY + newElementTop
+
+    // 根据当前拖动元素的中心点来判断拖动元素处于第几行
+    // 并根据当前所处行数获取当前行的可放置区域的数组
     let row = Math.floor(currentMouseOffsetY / this.props.rowHeight)
-    let placeableZones = this.placeablePositions[row]
+    let placeableZones = [...this.placeablePositions[row]]
+    console.log('row' + row)
+    // 判断是否元素被移动到组件外，如果移动到组件外则不进行判断
+    if (!placeableZones || currentMouseOffsetX > this.dragWrapperWidth) {
+      console.log('出界拉')
+      this.insertIndex = null
+      return false
+    }
+
     let isAlreadyHit = false
-    console.log(row)
-    console.log(currentMouseOffsetX, currentMouseOffsetY)
+
     for (let i = 0; i < placeableZones.length; i++) {
+
+      // 遍历所有的可放置区域，根据区域的x,y的范围来判断是否命中
       let zone = placeableZones[i]
       let {xzone , yzone} = zone
       if (
@@ -169,18 +197,26 @@ export default class DragWrapper extends Component {
         console.log('找到了！！！')
         console.log(currentMouseOffsetX, currentMouseOffsetY)
         isAlreadyHit = true
+
+        // 处理命中时nextId是null的情况，说明命中在尾部
         let nextId = zone.nextId || 'Trail'
+
+        // 因为setState是异步的，所以在实例上声明一个变量以做判断
         if (this.currentPlaceZoneNextId !== nextId) {
           this.currentPlaceZoneNextId = nextId
           this.setState({
             currentPlaceZoneNextId: nextId
           })
         }
+
+        // 如果已经命中，则可直接跳出循环
+        break
       }
     }
     if (!isAlreadyHit) {
       console.log('出去啦！')
       console.log(currentMouseOffsetX, currentMouseOffsetY)
+      // 如果遍历之后未命中，则重置currentPlaceZoneNextId
       if (this.currentPlaceZoneNextId !== null) {
         this.currentPlaceZoneNextId = null
         this.setState({
@@ -194,21 +230,30 @@ export default class DragWrapper extends Component {
     const { onChange } = this.props
     // 将挂载在document上的Mousemove事件，并将拖拽相关的信息重置
     document.removeEventListener("mousemove", func)
+
+    // TODO 根据是否命中来调整tags的顺序
+    let newTag = []
+    onChange && onChange(newTag)
+
+    // 重置拖拽相关的变量
+    this.resetDragvariable()
+  }
+
+  resetDragvariable = () => {
     this.dragPosition = {
       top: null,
       left: null,
       prevX: null,
-      prevY: null
+      prevY: null,
+      offsetTop: null,
+      offsetLeft: null
     }
+    this.currentPlaceZoneNextId = null
     this.setState({
-      currentDraggingItem: null
+      currentDraggingItem: null,
+      currentPlaceZoneNextId: null
     })
-
-    // TODO 根据放置的位置来调整tags的顺序
-    let newTag = []
-    onChange && onChange(newTag)
   }
-
 
   render() {
     const {tags, render, onChange, onDelete, wrapperClass, rowHeight} = this.props
