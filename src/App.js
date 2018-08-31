@@ -82,6 +82,7 @@ class App extends Component {
             <div>{tag.name}</div>
           )}
           onChange={val => this.setState({tags: val})}
+          clickable
         />
       </div>
     )

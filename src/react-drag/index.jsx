@@ -29,6 +29,7 @@ export default class DragWrapper extends Component {
     this.currentPlaceZoneNextId = null
     this.dragWrapperWidth = null
     this.tagChanged = false
+    this.dragDurationTimer = null
   }
 
   static propTypes = {
@@ -140,6 +141,29 @@ export default class DragWrapper extends Component {
 
   handleMouseDown = (id, e) => {
     e.preventDefault()
+    let event = e.nativeEvent
+    if (this.props.clickable) {
+      this.handleDurationDragStart(id, event)
+    } else {
+      this.handleDragStart(id, e)
+    }
+
+  }
+
+  handleDurationDragStart = (id, event) => {
+    let that = this
+    let durationDragEnd = () => this.handleDragEnd(null, durationDragEnd)
+    document.addEventListener("mouseup", durationDragEnd, false)
+    let durationDragStart = () => {
+      clearTimeout(this.dragDurationTimer)
+      this.dragDurationTimer = null
+      document.removeEventListener('mouseup', durationDragEnd)
+      that.handleDragStart(id, event)
+    }
+    this.dragDurationTimer = setTimeout(durationDragStart, 500)
+  }
+
+  handleDragStart = (id, e) => {
     this.setState({
       currentDraggingItem: id
     })
@@ -147,8 +171,8 @@ export default class DragWrapper extends Component {
     let dragItemWrapper = this.dragItemWrapper[id]
 
     // 存储拖拽前的鼠标以及元素的位置信息
-    this.dragPosition.prevX = e.nativeEvent.clientX
-    this.dragPosition.prevY = e.nativeEvent.clientY
+    this.dragPosition.prevX = e.clientX
+    this.dragPosition.prevY = e.clientY
     this.dragPosition.left = dragItemWrapper.offsetLeft
     this.dragPosition.top = dragItemWrapper.offsetTop
     this.dragPosition.baseCenterY = dragItem.offsetHeight / 2
@@ -257,12 +281,19 @@ export default class DragWrapper extends Component {
   }
 
   handleDragEnd = (moveFunc, upFunc) => {
-    this.dragItems[this.state.currentDraggingItem].style.position = 'static'
+    // 将挂载在document上的Mousemove事件，并将拖拽相关的信息重置
+    moveFunc && document.removeEventListener("mousemove", moveFunc)
+    document.removeEventListener("mouseup", upFunc)
+
+    if (this.dragDurationTimer) {
+      clearTimeout(this.dragDurationTimer)
+      this.resetDragVariable()
+      return false
+    }
+
     const { onChange } = this.props
 
-    // 将挂载在document上的Mousemove事件，并将拖拽相关的信息重置
-    document.removeEventListener("mousemove", moveFunc)
-    document.removeEventListener("mouseup", upFunc)
+    this.dragItems[this.state.currentDraggingItem].style.position = 'static'
 
     if (this.currentPlaceZoneNextId !== null) {
       let draggingTag = null
@@ -302,6 +333,7 @@ export default class DragWrapper extends Component {
       offsetLeft: null
     }
     this.currentPlaceZoneNextId = null
+    this.dragDurationTimer = null
     this.setState({
       currentDraggingItem: null,
       marginLeftId: null
@@ -309,7 +341,7 @@ export default class DragWrapper extends Component {
   }
 
   render() {
-    const {tags, render, onChange, onDelete, wrapperClass, rowHeight} = this.props
+    const {tags, render, wrapperClass, rowHeight, clickable} = this.props
     let itemHeight = rowHeight - 6
     return (
       <div className='DragWrapper' ref={ref => { this.dragWrapper = ref}}>
@@ -320,7 +352,7 @@ export default class DragWrapper extends Component {
             return (
               <div
                 key={item.id}
-                className={`DragItem${` ${wrapperClass}` || ''}${isPlaceZoneNext ? ' indent' : ''}${!item.static ? ' draggable' : ''}`}
+                className={`DragItem${` ${wrapperClass}` || ''}${isPlaceZoneNext ? ' indent' : ''}${!item.static && !clickable ? ' draggable' : ''}`}
                 onMouseDown={item.static ? undefined : e => this.handleMouseDown(item.id, e)}
                 ref={ref => { this.dragItemWrapper[item.id] = ref}}
               >
