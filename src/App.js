@@ -15,13 +15,13 @@ class App extends Component {
     this.state = {
       activeKey: 'default',
       tags: [
-        {id: '111', name: 'sss', static: true},
-        {id: '222', name: 'dddd'},
-        {id: '333', name: 'dddd'},
-        {id: '444', name: 'dddd'},
-        {id: '555', name: 'dddd'},
-        {id: '666', name: 'dddd'},
-        {id: '777', name: 'dddd', static: true}
+        {id: '111', name: '111', static: true},
+        {id: '222', name: '2222'},
+        {id: '333', name: '333'},
+        {id: '444', name: '44444'},
+        {id: '555', name: '555'},
+        {id: '666', name: '5555'},
+        {id: '777', name: '666'}
       ]
     }
   }

@@ -294,6 +294,8 @@ export default class DragWrapper extends Component {
     const { onChange } = this.props
 
     this.dragItems[this.state.currentDraggingItem].style.position = 'static'
+    this.dragItems[this.state.currentDraggingItem].style.left = 0
+    this.dragItems[this.state.currentDraggingItem].style.top = 0
 
     if (this.currentPlaceZoneNextId !== null) {
       let draggingTag = null
