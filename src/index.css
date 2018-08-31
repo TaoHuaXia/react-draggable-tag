@@ -13,10 +13,11 @@ body {
 }
 .DragItem {
   display: inline-block;
-  cursor: move;
-  position: relative;
   margin: 3px;
   box-sizing: border-box;
+}
+.draggable {
+  cursor: move;
 }
 .DragTag {
   position: relative;
@@ -25,22 +26,15 @@ body {
   border: 1px dashed #cccccc;
   border-radius: 4px;
   padding: 0 8px;
-  line-height: 30px;
   color: #666666;
   background: rgba(255, 255, 255, 0.7);
   overflow: hidden;
   box-sizing: border-box;
 }
 
-.TargetTag {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  top: 0;
-  right: 0;
-  background-color: red;
-  z-index: 2;
-  border-radius: 4px;
+.FlagTag {
+  opacity: .6;
+  box-shadow: 0 0 3px #2714c7;
 }
 .isDragging {
   will-change: transform;

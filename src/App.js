@@ -13,7 +13,16 @@ class App extends Component {
   constructor() {
     super()
     this.state = {
-      activeKey: 'default'
+      activeKey: 'default',
+      tags: [
+        {id: '111', name: 'sss', static: true},
+        {id: '222', name: 'dddd'},
+        {id: '333', name: 'dddd'},
+        {id: '444', name: 'dddd'},
+        {id: '555', name: 'dddd'},
+        {id: '666', name: 'dddd'},
+        {id: '777', name: 'dddd', static: true}
+      ]
     }
   }
 
@@ -68,18 +77,11 @@ class App extends Component {
           this.renderModules()
         }
         <Drag
-          tags={[
-            {id: '111', name: 'sss', order: 1},
-            {id: '222', name: 'dddd', order: 2},
-            {id: '333', name: 'dddd', order: 3},
-            {id: '444', name: 'dddd', order: 4},
-            {id: '555', name: 'dddd', order: 5},
-            {id: '666', name: 'dddd', order: 6},
-            {id: '777', name: 'dddd', order: 7}
-          ]}
+          tags={this.state.tags}
           render={(tag) => (
             <div>{tag.name}</div>
           )}
+          onChange={val => this.setState({tags: val})}
         />
       </div>
     )

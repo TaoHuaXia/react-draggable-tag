@@ -12,7 +12,7 @@ export default class DragWrapper extends Component {
     super()
     this.state = {
       currentDraggingItem: null,
-      currentPlaceZoneNextId: null
+      marginLeftId: null
     }
     this.dragItems = {}
     this.dragItemWrapper = {}
@@ -28,7 +28,7 @@ export default class DragWrapper extends Component {
     this.placeablePositions = []
     this.currentPlaceZoneNextId = null
     this.dragWrapperWidth = null
-    this.insertIndex = null
+    this.tagChanged = false
   }
 
   static propTypes = {
@@ -45,10 +45,23 @@ export default class DragWrapper extends Component {
   }
 
   componentDidMount() {
-    this.setPositions()
+    this.setPositions(this.props)
+  }
+
+  componentWillReceiveProps(nextProps) {
+    console.log('reciveProps')
+    this.tagChanged = true
+  }
+
+  componentDidUpdate() {
+    if (this.state.currentDraggingItem === null) {
+      console.log('update')
+      this.setPositions(this.props)
+    }
   }
 
   setPositions = () => {
+    this.placeablePositions = []
     if (!this.props.tags) return false
     let wrapperWidth = this.dragWrapper.clientWidth
     this.dragWrapperWidth = wrapperWidth
@@ -58,7 +71,6 @@ export default class DragWrapper extends Component {
       let offsetLeft = this.dragItemWrapper[tag.id].offsetLeft
       let offsetHeight = this.dragItemWrapper[tag.id].offsetHeight
       let offsetWidth = this.dragItemWrapper[tag.id].offsetWidth
-
       // 根据offsetTop来计算出当前tag在第几行，对可放置区域根据行数来进行划分
       let row = Math.floor(offsetTop / this.props.rowHeight)
       if (!itemPositionInRow[row]) itemPositionInRow[row] = []
@@ -77,20 +89,28 @@ export default class DragWrapper extends Component {
         let yzone = []
         // 每一个标签前方的可放置区域的右侧就是当前标签（在鼠标移动到可放置区域的时候，右侧的标签应该后移）
         let nextId = tagPosition.id
+        let nextIndex = tagPosition.index
+        let isRowTail = false
         // (row[tagIndex + 1] && row[tagIndex + 1].id)  || null
         // 区分每行的首个跟最后一个元素
         if (tagIndex === 0) {
           xzone = [0, tagPosition.leftTop[0]]
           yzone = [tagPosition.leftTop[1], tagPosition.leftBottom[1]]
         } else if (tagIndex === row.length - 1) {
+          isRowTail = true
+
           // 如果在行末尾，nextId为下一行的首个元素
-          nextId = (itemPositionInRow[rowIndex + 1] && itemPositionInRow[rowIndex + 1][0].id) || null
+          let nextItem = itemPositionInRow[rowIndex + 1] && itemPositionInRow[rowIndex + 1][0]
+          nextId = (nextItem && nextItem.id) || null
+          nextIndex = (nextItem && nextItem.index)
           xzone = [tagPosition.rightTop[0], wrapperWidth]
           yzone = [tagPosition.rightTop[1], tagPosition.rightBottom[1]]
 
           // 如果在行末尾，需要额外插入一个最右侧的可放置区域，所以在此，现手动将末尾元素的左侧可放置区域push到数组中
           this.placeablePositions[rowIndex].push({
             nextId: tagPosition.id,
+            nextIndex: tagPosition.index,
+            isisRowTail: false,
             ...this.getZoneBetweenTwo(row[tagIndex - 1], tagPosition)
           })
         } else {
@@ -101,8 +121,10 @@ export default class DragWrapper extends Component {
         if (!this.placeablePositions[rowIndex]) this.placeablePositions[rowIndex] = []
         this.placeablePositions[rowIndex].push({
           nextId,
+          nextIndex,
           xzone,
-          yzone
+          yzone,
+          isRowTail
         })
       })
     })
@@ -127,12 +149,17 @@ export default class DragWrapper extends Component {
     // 存储拖拽前的鼠标以及元素的位置信息
     this.dragPosition.prevX = e.nativeEvent.clientX
     this.dragPosition.prevY = e.nativeEvent.clientY
-    this.dragPosition.left = 0
-    this.dragPosition.top  = 0
-    this.dragPosition.baseCenterY = dragItemWrapper.offsetTop + dragItem.offsetHeight / 2
-    this.dragPosition.baseCenterX = dragItemWrapper.offsetLeft + dragItem.offsetWidth / 2
+    this.dragPosition.left = dragItemWrapper.offsetLeft
+    this.dragPosition.top = dragItemWrapper.offsetTop
+    this.dragPosition.baseCenterY = dragItem.offsetHeight / 2
+    this.dragPosition.baseCenterX = dragItem.offsetWidth / 2
+
+    dragItem.style.position = 'absolute'
+    dragItem.style.left = this.dragPosition.left
+    dragItem.style.top = this.dragPosition.top
+
     // 获取被拖拽元素左侧的可放置区域的index，用以过滤其左右两侧的可放置区域
-    let row = Math.floor(this.dragPosition.baseCenterY / this.props.rowHeight)
+    let row = Math.floor((this.dragPosition.top + this.dragPosition.baseCenterY) / this.props.rowHeight)
     let beforeZoneIndex = null
     this.placeablePositions[row].forEach((zone, index) => {
       if (zone.nextId === id) {
@@ -147,8 +174,9 @@ export default class DragWrapper extends Component {
 
     // 绑定mousemove事件以及mouseup事件
     let elementDrag = (e) => this.handleDrag(e, dragItem)
+    let handleDragEnd = () => this.handleDragEnd(elementDrag, handleDragEnd)
     document.addEventListener("mousemove", elementDrag, false)
-    document.addEventListener("mouseup", _ => this.handleDragEnd(elementDrag))
+    document.addEventListener("mouseup", handleDragEnd, false)
   }
 
   handleDrag = (e, element) => {
@@ -159,7 +187,8 @@ export default class DragWrapper extends Component {
     // 根据鼠标的位移来设置被拖动元素的transform的值
     let newElementLeft = this.dragPosition.left + currentClientX - this.dragPosition.prevX
     let newElementTop = this.dragPosition.top + currentClientY - this.dragPosition.prevY
-    element.style.transform = `translate(${newElementLeft}px,${newElementTop}px)`
+    element.style.left = newElementLeft + 'px'
+    element.style.top = newElementTop + 'px'
 
     // 更新位置对象的信息
     this.dragPosition.top = newElementTop
@@ -174,18 +203,18 @@ export default class DragWrapper extends Component {
     // 根据当前拖动元素的中心点来判断拖动元素处于第几行
     // 并根据当前所处行数获取当前行的可放置区域的数组
     let row = Math.floor(currentMouseOffsetY / this.props.rowHeight)
-    let placeableZones = [...this.placeablePositions[row]]
-    console.log('row' + row)
+
     // 判断是否元素被移动到组件外，如果移动到组件外则不进行判断
-    if (!placeableZones || currentMouseOffsetX > this.dragWrapperWidth) {
+    if (!this.placeablePositions[row] || currentMouseOffsetX > this.dragWrapperWidth) {
       console.log('出界拉')
-      this.insertIndex = null
       return false
     }
 
+    let placeableZones = [...this.placeablePositions[row]]
+    let zonesLength = placeableZones.length
     let isAlreadyHit = false
 
-    for (let i = 0; i < placeableZones.length; i++) {
+    for (let i = 0; i < zonesLength; i++) {
 
       // 遍历所有的可放置区域，根据区域的x,y的范围来判断是否命中
       let zone = placeableZones[i]
@@ -195,18 +224,20 @@ export default class DragWrapper extends Component {
         yzone[0] < currentMouseOffsetY && currentMouseOffsetY < yzone[1]
       ) {
         console.log('找到了！！！')
-        console.log(currentMouseOffsetX, currentMouseOffsetY)
         isAlreadyHit = true
 
         // 处理命中时nextId是null的情况，说明命中在尾部
         let nextId = zone.nextId || 'Trail'
 
-        // 因为setState是异步的，所以在实例上声明一个变量以做判断
         if (this.currentPlaceZoneNextId !== nextId) {
           this.currentPlaceZoneNextId = nextId
-          this.setState({
-            currentPlaceZoneNextId: nextId
-          })
+          
+          // 当移动到行末尾时，不对右侧的元素进行后移
+          if (!zone.isRowTail) {
+            this.setState({
+              marginLeftId: nextId
+            })
+          }
         }
 
         // 如果已经命中，则可直接跳出循环
@@ -215,31 +246,53 @@ export default class DragWrapper extends Component {
     }
     if (!isAlreadyHit) {
       console.log('出去啦！')
-      console.log(currentMouseOffsetX, currentMouseOffsetY)
       // 如果遍历之后未命中，则重置currentPlaceZoneNextId
       if (this.currentPlaceZoneNextId !== null) {
         this.currentPlaceZoneNextId = null
         this.setState({
-          currentPlaceZoneNextId: null
+          marginLeftId: null
         })
       }
     }
   }
 
-  handleDragEnd = (func) => {
+  handleDragEnd = (moveFunc, upFunc) => {
+    this.dragItems[this.state.currentDraggingItem].style.position = 'static'
     const { onChange } = this.props
+
     // 将挂载在document上的Mousemove事件，并将拖拽相关的信息重置
-    document.removeEventListener("mousemove", func)
+    document.removeEventListener("mousemove", moveFunc)
+    document.removeEventListener("mouseup", upFunc)
 
-    // TODO 根据是否命中来调整tags的顺序
-    let newTag = []
-    onChange && onChange(newTag)
+    if (this.currentPlaceZoneNextId !== null) {
+      let draggingTag = null
+      let newTag = [...this.props.tags]
+      // 获取被拖动的元素对应的配置对象
+      for (let i = 0; i < newTag.length; i++) {
+        if (newTag[i].id === this.state.currentDraggingItem) {
+          draggingTag = newTag.splice(i, 1)[0]
+          break
+        }
+      }
+      if (this.currentPlaceZoneNextId === 'Trail') {
+        // 处理移动的位置为列表末尾的情况
+        newTag.push(draggingTag)
+      } else {
+        for (let i = 0; i < newTag.length; i++) {
+          if (newTag[i].id === this.currentPlaceZoneNextId) {
+            newTag.splice(i, 0, draggingTag)
+            break
+          }
+        }
+      }
 
+      onChange && onChange(newTag)
+    }
     // 重置拖拽相关的变量
-    this.resetDragvariable()
+    this.resetDragVariable()
   }
 
-  resetDragvariable = () => {
+  resetDragVariable = () => {
     this.dragPosition = {
       top: null,
       left: null,
@@ -251,7 +304,7 @@ export default class DragWrapper extends Component {
     this.currentPlaceZoneNextId = null
     this.setState({
       currentDraggingItem: null,
-      currentPlaceZoneNextId: null
+      marginLeftId: null
     })
   }
 
@@ -263,24 +316,30 @@ export default class DragWrapper extends Component {
         {
           tags.map(item => {
             let isDragging = this.state.currentDraggingItem === item.id
-            let isPlaceZoneNext = this.state.currentPlaceZoneNextId === item.id
+            let isPlaceZoneNext = this.state.marginLeftId === item.id
             return (
               <div
                 key={item.id}
-                className={`DragItem ${wrapperClass || ''} ${isPlaceZoneNext ? 'indent' : ''}`}
-                onMouseDown={e => this.handleMouseDown(item.id, e)}
+                className={`DragItem${` ${wrapperClass}` || ''}${isPlaceZoneNext ? ' indent' : ''}${!item.static ? ' draggable' : ''}`}
+                onMouseDown={item.static ? undefined : e => this.handleMouseDown(item.id, e)}
                 ref={ref => { this.dragItemWrapper[item.id] = ref}}
               >
                 <div
                   id={item.id}
                   className={`DragTag ${isDragging ? 'isDragging' : ''}`}
                   ref={ref => { this.dragItems[item.id] = ref}}
-                  style={{height: itemHeight + 'px'}}
+                  style={{height: itemHeight + 'px', lineHeight: itemHeight - 2 + 'px'}}
                 >
                   {render(item)}
                 </div>
                 {
-                  isDragging ? <div className='TargetTag' /> : null
+                  isDragging ?  <div
+                    id={item.id}
+                    className={'DragTag FlagTag'}
+                    style={{height: itemHeight + 'px', lineHeight: itemHeight - 2 + 'px'}}
+                  >
+                    {render(item)}
+                  </div> : null
                 }
               </div>
             )
