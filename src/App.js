@@ -20,8 +20,8 @@ class App extends Component {
         {id: '333', name: '333'},
         {id: '444', name: '44444'},
         {id: '555', name: '555'},
-        {id: '666', name: '5555'},
-        {id: '777', name: '666'}
+        {id: '666', name: '6666'},
+        {id: '777', name: '777'}
       ]
     }
   }

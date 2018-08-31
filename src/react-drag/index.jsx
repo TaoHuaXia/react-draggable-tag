@@ -92,14 +92,27 @@ export default class DragWrapper extends Component {
         let nextId = tagPosition.id
         let nextIndex = tagPosition.index
         let isRowTail = false
-        // (row[tagIndex + 1] && row[tagIndex + 1].id)  || null
-        // 区分每行的首个跟最后一个元素
-        if (tagIndex === 0) {
+        if (row.length === 1) {
+          // 区分当一行只有一个元素的情况
+          xzone = [0, tagPosition.leftTop[0]]
+          yzone = [tagPosition.leftTop[1], tagPosition.leftBottom[1]]
+
+          // 初始化空数组
+          this.placeablePositions[rowIndex] = []
+          this.placeablePositions[rowIndex].push({
+            nextId: null,
+            nextIndex: null,
+            isRowTail: true,
+            xzone: [tagPosition.rightTop[0], wrapperWidth],
+            yzone: [tagPosition.rightTop[1], tagPosition.rightBottom[1]]
+          })
+        } else if (tagIndex === 0) {
+          // 区分元素为当前行首个元素的情况
           xzone = [0, tagPosition.leftTop[0]]
           yzone = [tagPosition.leftTop[1], tagPosition.leftBottom[1]]
         } else if (tagIndex === row.length - 1) {
+          // 区分元素为当前行末尾元素的情况
           isRowTail = true
-
           // 如果在行末尾，nextId为下一行的首个元素
           let nextItem = itemPositionInRow[rowIndex + 1] && itemPositionInRow[rowIndex + 1][0]
           nextId = (nextItem && nextItem.id) || null
@@ -111,7 +124,7 @@ export default class DragWrapper extends Component {
           this.placeablePositions[rowIndex].push({
             nextId: tagPosition.id,
             nextIndex: tagPosition.index,
-            isisRowTail: false,
+            isRowTail: false,
             ...this.getZoneBetweenTwo(row[tagIndex - 1], tagPosition)
           })
         } else {
@@ -177,10 +190,14 @@ export default class DragWrapper extends Component {
     this.dragPosition.top = dragItemWrapper.offsetTop
     this.dragPosition.baseCenterY = dragItem.offsetHeight / 2
     this.dragPosition.baseCenterX = dragItem.offsetWidth / 2
+    this.dragPosition.offsetLeft = dragItemWrapper.offsetLeft
+    this.dragPosition.offsetTop = dragItemWrapper.offsetTop
 
+    debugger
+    console.log(dragItemWrapper, this.dragPosition)
     dragItem.style.position = 'absolute'
-    dragItem.style.left = this.dragPosition.left
-    dragItem.style.top = this.dragPosition.top
+    dragItem.style.left = this.dragPosition.left + 'px'
+    dragItem.style.top = this.dragPosition.top + 'px'
 
     // 获取被拖拽元素左侧的可放置区域的index，用以过滤其左右两侧的可放置区域
     let row = Math.floor((this.dragPosition.top + this.dragPosition.baseCenterY) / this.props.rowHeight)
@@ -293,9 +310,10 @@ export default class DragWrapper extends Component {
 
     const { onChange } = this.props
 
-    this.dragItems[this.state.currentDraggingItem].style.position = 'static'
-    this.dragItems[this.state.currentDraggingItem].style.left = 0
-    this.dragItems[this.state.currentDraggingItem].style.top = 0
+    let dragItem = this.dragItems[this.state.currentDraggingItem]
+    dragItem.style.position = 'static'
+    dragItem.style.left = this.dragPosition.offsetLeft + 'px'
+    dragItem.style.top = this.dragPosition.offsetTop + 'px'
 
     if (this.currentPlaceZoneNextId !== null) {
       let draggingTag = null
@@ -318,7 +336,8 @@ export default class DragWrapper extends Component {
           }
         }
       }
-
+      console.log(2222222222)
+      console.log(newTag)
       onChange && onChange(newTag)
     }
     // 重置拖拽相关的变量
@@ -354,7 +373,7 @@ export default class DragWrapper extends Component {
             return (
               <div
                 key={item.id}
-                className={`DragItem${` ${wrapperClass}` || ''}${isPlaceZoneNext ? ' indent' : ''}${!item.static && !clickable ? ' draggable' : ''}`}
+                className={`DragItem${isPlaceZoneNext ? ' indent' : ''}${!item.static && !clickable ? ' draggable' : ''}`}
                 onMouseDown={item.static ? undefined : e => this.handleMouseDown(item.id, e)}
                 ref={ref => { this.dragItemWrapper[item.id] = ref}}
               >
